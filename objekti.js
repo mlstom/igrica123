@@ -177,6 +177,16 @@ class Fighter extends Sprite {
 
        if(!this.smrt) this.animateFrameWarrior()
 
+        if (
+        this.image === this.sprites.attack1.image &&
+        (
+            (this.neprijatelj && this.trenutni === 0) ||
+            (!this.neprijatelj && this.trenutni === this.koliko - 1)
+        )
+    ) {
+        this.isAttack = false
+    }
+
         this.position.x += this.velocity.x
         this.position.y += this.velocity.y
 

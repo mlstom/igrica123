@@ -1,12 +1,10 @@
 let ws = new WebSocket('ws://localhost:3000');
-
-
 function startMultiplayer() {
     // sakrij glavni meni i prikaži loading
     document.querySelector('#glavni').style.display = 'none';
     document.querySelector('#loading').style.display = 'flex';
 
-    // dodeljujemo player1 (može biti random izbor iz Characters npr.)
+    
     player = Character1;
 
     ws.onmessage = (event) => {

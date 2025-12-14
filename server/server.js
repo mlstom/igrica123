@@ -30,15 +30,31 @@ wss.on('connection', (ws) => {
         waitingPlayer = null; // soba popunjena
     }
 
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
+   ws.on('message', (message) => {
+    const data = JSON.parse(message);
 
-        // Prosleđujemo komande drugom igraču u sobi
-        rooms.forEach(room => {
-            if (room.player1 === ws) room.player2.send(JSON.stringify(data));
-            else if (room.player2 === ws) room.player1.send(JSON.stringify(data));
-        });
-    });
+    if (data.type === 'button_click') {
+        const timestamp = new Date().toISOString();
+
+        console.log(
+            `Player ${ws.playerNumber} pressed ${data.button} at ${timestamp}`
+        );
+
+        // primer: prosleđivanje drugom igraču
+        const room = ws.room;
+        if (!room) return;
+
+        const otherPlayer =
+            room.player1 === ws ? room.player2 : room.player1;
+
+        otherPlayer.send(JSON.stringify({
+            type: 'button_click',
+            from: ws.playerNumber,
+            button: data.button,
+            time: timestamp
+        }));
+    }
+});
 
     ws.on('close', () => {
         console.log('Player disconnected');
@@ -52,3 +68,4 @@ wss.on('connection', (ws) => {
 http.listen(3000, () => {
     console.log('Server running on http://localhost:3000');
 });
+
