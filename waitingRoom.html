@@ -17,18 +17,19 @@
             justify-content: center;
             padding-top: 3%;
         }
-        a{
+
+        a {
             text-decoration: none;
             font-style: normal;
         }
-        
+
 
 
         .pozadina {
             width: 1000px;
             height: 550px;
-            
-            background-image: url("assest/background/Fighter 6.png");
+
+            background-image: url("assest/background/Loading.png");
             display: flex;
             justify-content: center;
             flex-direction: column;
@@ -60,7 +61,7 @@
             -webkit-user-select: none;
             touch-action: manipulation;
         }
-        
+
         .button-74:hover {
             background-color: #fff;
         }
@@ -81,9 +82,31 @@
 
 <body>
     <div class="pozadina">
-        <a href="waitingRoom.html" class="butt button-74">Multiplayer</a>
-        <a href="twoPlayer.html" class="butt button-74" >Two player mode</a>
     </div>
+    <script src="waitingJs.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = new WebSocket("ws://localhost:3000");
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === "waiting") {
+                console.log("Čekam drugog igrača...");
+            }
+
+            if (data.type === "start") {
+                console.log("Start igre! Ti si player", data.player);
+                // samo ovde u browseru menjamo stranicu
+                window.location.href = "multi.html?player=" + data.player;
+            }
+
+            if (data.type === "button_click") {
+                console.log(`Player ${data.from} kliknuo ${data.button} u ${data.time}`);
+            }
+        };
+    </script>
 </body>
+
 
 </html>

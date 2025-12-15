@@ -1,4 +1,4 @@
-let ws = new WebSocket('ws://localhost:3000');
+
 function startMultiplayer() {
     // sakrij glavni meni i prikaži loading
     document.querySelector('#glavni').style.display = 'none';

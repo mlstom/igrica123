@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multiplayer Fight</title>
+<script src="objekti.js"></script>
+<script src="characters.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { background-color: #452829; display: flex; justify-content: center; padding-top: 3%; }
+a { text-decoration: none; font-style: normal; }
+.butt { width: 200px; height: 50px; }
+.button-74 { background-color: #fbeee0; border: 2px solid #422800; box-shadow: #422800 4px 4px 0 0; color: #422800; cursor: pointer; display: inline-block; font-weight: 600; font-size: 18px; padding: 0 18px; line-height: 50px; text-align: center; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.button-74:hover { background-color: #fff; }
+.button-74:active { box-shadow: #422800 2px 2px 0 0; transform: translate(2px, 2px); }
+</style>
+</head>
+<body>
+<div id="game" style="position: relative;">
+    <div style="position: absolute; display: flex; width: 100%; align-items: center; padding-inline: 20px; padding-block: 10px;">
+        <div style="position: relative; height: 30px; width: 100%; display: flex; justify-content: flex-end;">
+            <div style="position: absolute; top: 0; bottom: 0; left: 0; right: 0; background-color: grey"></div>
+            <div id="playerhl" style="background: yellow; height: 30px; width: 100%; z-index: 10;"></div>
+        </div>
+        <div id="timer" style="background: red; width: 100px; height: 100px; flex-shrink: 0; display: flex; justify-content: center; align-items: center;"></div>
+        <div style="position: relative; height: 30px; width: 100%;">
+            <div id="enemyhl" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0; background-color: blue;"></div>
+            <div style="background: grey; height: 30px; width: 100%; z-index: 10;"></div>
+        </div>
+    </div>
+    <div id="displayText" style="position: absolute; align-items: center; justify-content: center; top: 0; right: 0; bottom: 0; left: 0; display: none; color:white">Tie</div>
+    <canvas></canvas>
+</div>
+
+<script>
+const canvas = document.querySelector('canvas')
+const c = canvas.getContext('2d')
+canvas.width = 1024
+canvas.height = 576
+
+const background = new Sprite({ position: { x: 0, y: 0 }, imageSrc: './assest/background/background.png' })
+const shop = new Sprite({ position: { x: 600, y: 159 }, imageSrc: './assest/background/shop_anim.png', scale: 2.5, koliko: 6 })
+
+let player, enemy, gameOver = false
+const keys = { a: { pressed: false }, d: { pressed: false } }
+
+// Enemy input state
+const enemyKeys = { left: false, right: false }
+
+// WebSocket setup
+const ws = new WebSocket('ws://localhost:3000')
+let playerNumber = null
+
+ws.onopen = () => console.log('Connected to server')
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+    switch(data.type) {
+        case 'waiting':
+            console.log("Waiting for opponent...");
+            break
+        case 'start':
+            playerNumber = data.player
+            if(playerNumber === 1){
+                player = Character1; enemy = Character2;
+                player.position.x = 200; enemy.position.x = 600;
+                enemy.neprijatelj = true; enemy.fliping()
+            } else {
+                player = Character2; enemy = Character1;
+                player.position.x = 600; enemy.position.x = 200;
+                enemy.neprijatelj = true; enemy.fliping()
+            }
+            animate(); vreme();
+            break
+        case 'keyDown':
+            if(data.from !== playerNumber){
+                if(data.key==='a') enemyKeys.left=true
+                if(data.key==='d') enemyKeys.right=true
+            }
+            break
+        case 'keyUp':
+            if(data.from !== playerNumber){
+                if(data.key==='a') enemyKeys.left=false
+                if(data.key==='d') enemyKeys.right=false
+            }
+            break
+        case 'button_click':
+            if(data.from !== playerNumber){
+                if(data.button==='attack') enemy.attack()
+                if(data.button==='jump' && enemy.ground) enemy.velocity.y=-16
+            }
+            break
+    }
+}
+
+function sendAction(action){
+    ws.send(JSON.stringify(action))
+}
+
+// Player input
+window.addEventListener('keydown', (e) => {
+    if(!player.smrt){
+        switch(e.key){
+            case 'a': keys.a.pressed = true; player.lastKey='a'; sendAction({type:'keyDown', key:'a'}); break
+            case 'd': keys.d.pressed = true; player.lastKey='d'; sendAction({type:'keyDown', key:'d'}); break
+            case 'w': if(player.ground){ player.velocity.y=-16; sendAction({type:'button_click', button:'jump'}) }; break
+            case ' ': player.attack(); sendAction({type:'button_click', button:'attack'}); break
+        }
+    }
+})
+
+window.addEventListener('keyup', (e) => {
+    switch(e.key){
+        case 'a': keys.a.pressed=false; sendAction({type:'keyUp', key:'a'}); break
+        case 'd': keys.d.pressed=false; sendAction({type:'keyUp', key:'d'}); break
+    }
+})
+
+// Timer
+let timer = 60, timerId
+function vreme(){
+    if(timer>0){ timerId=setTimeout(vreme,1000); timer--; document.querySelector("#timer").innerHTML=timer }
+    if(timer===0) pobednik({player,enemy,timerId})
+}
+
+function animate(){
+    if(gameOver) return
+    requestAnimationFrame(animate)
+    c.fillStyle='black'; c.fillRect(0,0,canvas.width,canvas.height)
+    background.update(); shop.update()
+    player.update(); enemy.update()
+
+    // Flip logic
+    if(player.position.x + player.width + player.pomeri.x > enemy.position.x + enemy.pomeri.x + enemy.width){
+        if(enemy.neprijatelj){ player.fliping(); enemy.normaling() }
+    } else { if(player.neprijatelj){ enemy.fliping(); player.normaling() } }
+
+    // Player movement
+    player.velocity.x=0
+    if(player.isAttack) player.switchSprite('attack1')
+    else{
+        if(keys.a.pressed && player.lastKey==='a'){ player.velocity.x=-5; player.switchSprite('run') }
+        else if(keys.d.pressed && player.lastKey==='d'){ player.velocity.x=5; player.switchSprite('run') }
+        else player.switchSprite('idle')
+        if(player.velocity.y<0) player.switchSprite('jump')
+        else if(player.velocity.y>0) player.switchSprite('fall')
+    }
+
+    // Enemy movement
+    enemy.velocity.x=0
+    if(enemy.isAttack) enemy.switchSprite('attack1')
+    else{
+        if(enemyKeys.left){ enemy.velocity.x=-5; enemy.switchSprite('run') }
+        else if(enemyKeys.right){ enemy.velocity.x=5; enemy.switchSprite('run') }
+        else enemy.switchSprite('idle')
+        if(enemy.velocity.y<0) enemy.switchSprite('jump')
+        else if(enemy.velocity.y>0) enemy.switchSprite('fall')
+    }
+
+    player.isGround(); enemy.isGround()
+
+    // Hit detection
+    if(udaren({napadac:player,udaren:enemy}) && player.isAttack && player.trenutni===4){
+        enemy.takeHit(); player.isAttack=false; document.querySelector('#enemyhl').style.width=enemy.health+'%'
+    }
+    if(udaren({napadac:enemy,udaren:player}) && enemy.isAttack && enemy.trenutni===2){
+        player.takeHit(); enemy.isAttack=false; document.querySelector('#playerhl').style.width=player.health+'%'
+    }
+
+    if(player.health<=0 || enemy.health<=0){
+        if(player.health<=0) player.switchSprite('death')
+        if(enemy.health<=0) enemy.switchSprite('death')
+        pobednik({player,enemy,timerId})
+        gameOver=true
+    }
+}
+
+function pobednik({player,enemy,timerId}){
+    clearTimeout(timerId)
+    const p=document.querySelector("#displayText")
+    p.style.display='flex'; p.style.flexDirection='column'; p.style.alignItems='center'; p.style.gap='10px'
+    let tekst="Tie"
+    if(player.health>enemy.health) tekst="Bravo na pobedi"
+    else if(player.health<enemy.health) tekst="Porazen si"
+    p.innerHTML=`
+        <h1>${tekst}</h1>
+        <a href="index.html" class="butt button-74">Home</a>
+        <a href="waitingRoom.html" class="butt button-74">Restart</a>
+    `
+}
+
+function udaren({napadac,udaren}){
+    return (napadac.attackBox.position.x+napadac.attackBox.width >= udaren.position.x &&
+            napadac.attackBox.position.x <= udaren.position.x + udaren.width &&
+            napadac.attackBox.position.y+napadac.attackBox.height >= udaren.position.y)
+}
+</script>
+</body>
+</html>

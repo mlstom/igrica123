@@ -1,3 +1,5 @@
+
+
 const Character1 = new Fighter({
     id:1,
     name:"Martial Hero",
@@ -233,3 +235,4 @@ const Character4 = new Fighter({
 
 
 const Characters =[Character1,Character2,Character3,Character4]
+
